@@ -1,0 +1,28 @@
+Logs
+logs
+.log
+npm-debug.log
+yarn-debug.log*
+yarn-error.log*
+
+Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+Dependency directories
+node_modules/
+jspm_packages/
+
+TypeScript and other compiled files
+*.tsbuildinfo
+dist/
+build/
+coverage/
+
+Misc
+.env
+.DS_Store
+.vscode/
+.idea/
