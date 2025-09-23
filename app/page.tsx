@@ -118,15 +118,33 @@ export default function Home() {
   }, [selectedImage])
 
   const getStatusIcon = (status: string) => {
-    return status === 'online' ? (
-      <Wifi className="w-5 h-5 text-green-500" />
-    ) : (
-      <WifiOff className="w-5 h-5 text-red-500" />
-    )
+    if (status === 'online') {
+      return <Wifi className="w-5 h-5 text-green-500" />
+    } else if (status === 'disconnected') {
+      return <AlertCircle className="w-5 h-5 text-yellow-500" />
+    } else {
+      return <WifiOff className="w-5 h-5 text-red-500" />
+    }
   }
 
   const getStatusColor = (status: string) => {
-    return status === 'online' ? 'text-green-600' : 'text-red-600'
+    if (status === 'online') {
+      return 'text-green-600'
+    } else if (status === 'disconnected') {
+      return 'text-yellow-600'
+    } else {
+      return 'text-red-600'
+    }
+  }
+
+  const getStatusText = (status: string) => {
+    if (status === 'online') {
+      return 'Online'
+    } else if (status === 'disconnected') {
+      return 'Disconnected'
+    } else {
+      return 'Offline'
+    }
   }
 
   const formatDate = (dateString: string) => {
@@ -220,7 +238,8 @@ export default function Home() {
                     <div className="flex items-center justify-between mb-4">
                       <div className="flex items-center space-x-3">
                         <div className={`p-2 rounded-lg ${
-                          device.status === 'online' ? 'bg-green-100' : 'bg-red-100'
+                          device.status === 'online' ? 'bg-green-100' : 
+                          device.status === 'disconnected' ? 'bg-yellow-100' : 'bg-red-100'
                         }`}>
                           {getStatusIcon(device.status)}
                         </div>
@@ -228,10 +247,8 @@ export default function Home() {
                           <h3 className="font-semibold text-gray-900 text-lg">
                             {device.device_id}
                           </h3>
-                          <p className={`text-sm font-medium ${
-                            device.status === 'online' ? 'text-green-600' : 'text-red-600'
-                          }`}>
-                            {device.status === 'online' ? 'Online' : 'Offline'}
+                          <p className={`text-sm font-medium ${getStatusColor(device.status)}`}>
+                            {getStatusText(device.status)}
                           </p>
                         </div>
                       </div>
