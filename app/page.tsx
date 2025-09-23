@@ -1,13 +1,14 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Wifi, WifiOff, Camera, Clock, RefreshCw } from 'lucide-react'
+import { Wifi, WifiOff, Camera, Clock, RefreshCw, Monitor, Activity, AlertCircle } from 'lucide-react'
 import Image from 'next/image'
 
 interface Device {
   device_id: string
   status: string
   last_seen: string
+  image_count?: number
 }
 
 interface ImageData {
@@ -16,7 +17,7 @@ interface ImageData {
   url: string
 }
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://c4kgwso4ggcgk44080kc4ooo.157.90.23.234.sslip.io'
 
 export default function Home() {
   const [devices, setDevices] = useState<Device[]>([])
@@ -29,11 +30,26 @@ export default function Home() {
     try {
       const response = await fetch(`${API_BASE_URL}/api/devices`)
       const data = await response.json()
-      const deviceList = Object.entries(data.devices).map(([device_id, status]: [string, any]) => ({
-        device_id,
-        status: status.status,
-        last_seen: status.last_seen
-      }))
+      const deviceList = await Promise.all(
+        Object.entries(data.devices).map(async ([device_id, status]: [string, any]) => {
+          // Fetch image count for each device
+          let imageCount = 0
+          try {
+            const imageResponse = await fetch(`${API_BASE_URL}/api/images/${device_id}`)
+            const imageData = await imageResponse.json()
+            imageCount = imageData.images?.length || 0
+          } catch (error) {
+            console.error(`Error fetching images for ${device_id}:`, error)
+          }
+          
+          return {
+            device_id,
+            status: status.status,
+            last_seen: status.last_seen,
+            image_count: imageCount
+          }
+        })
+      )
       setDevices(deviceList)
       
       // Auto-select first device if none selected
@@ -114,126 +130,174 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="bg-white shadow-sm border-b">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+      {/* Header */}
+      <div className="bg-white shadow-lg border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-6">
             <div className="flex items-center space-x-3">
-              <Camera className="w-8 h-8 text-blue-600" />
-              <h1 className="text-2xl font-bold text-gray-900">Raspberry Pi Monitor</h1>
+              <div className="p-2 bg-blue-100 rounded-lg">
+                <Monitor className="w-8 h-8 text-blue-600" />
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900">Raspberry Pi Monitor</h1>
+                <p className="text-sm text-gray-500">Real-time device monitoring and image capture</p>
+              </div>
             </div>
-            <button
-              onClick={refreshData}
-              disabled={refreshing}
-              className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
-            >
-              <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
-              <span>Refresh</span>
-            </button>
+            <div className="flex items-center space-x-4">
+              <div className="text-right">
+                <p className="text-sm text-gray-500">Total Devices</p>
+                <p className="text-2xl font-bold text-gray-900">{devices.length}</p>
+              </div>
+              <button
+                onClick={refreshData}
+                disabled={refreshing}
+                className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+              >
+                <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+                <span>Refresh</span>
+              </button>
+            </div>
           </div>
         </div>
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Device Status Panel */}
-          <div className="lg:col-span-1">
-            <div className="bg-white rounded-lg shadow-sm border p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">Device Status</h2>
-              
-              {devices.length === 0 ? (
-                <div className="text-center py-8">
-                  <WifiOff className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                  <p className="text-gray-500">No devices connected</p>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {devices.map((device) => (
-                    <div
-                      key={device.device_id}
-                      className={`p-4 rounded-lg border cursor-pointer transition-colors ${
-                        selectedDevice === device.device_id
-                          ? 'border-blue-500 bg-blue-50'
-                          : 'border-gray-200 hover:border-gray-300'
-                      }`}
-                      onClick={() => setSelectedDevice(device.device_id)}
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-3">
+        {devices.length === 0 ? (
+          <div className="text-center py-16">
+            <div className="p-4 bg-gray-100 rounded-full w-24 h-24 mx-auto mb-6 flex items-center justify-center">
+              <WifiOff className="w-12 h-12 text-gray-400" />
+            </div>
+            <h3 className="text-xl font-semibold text-gray-900 mb-2">No Devices Connected</h3>
+            <p className="text-gray-500 mb-6">Start your Raspberry Pi devices to see them appear here</p>
+            <button
+              onClick={refreshData}
+              className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              Check Again
+            </button>
+          </div>
+        ) : (
+          <div className="space-y-8">
+            {/* Device Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {devices.map((device) => (
+                <div
+                  key={device.device_id}
+                  className={`bg-white rounded-xl shadow-lg border-2 transition-all duration-200 cursor-pointer hover:shadow-xl ${
+                    selectedDevice === device.device_id
+                      ? 'border-blue-500 shadow-blue-100'
+                      : 'border-gray-200 hover:border-gray-300'
+                  }`}
+                  onClick={() => setSelectedDevice(device.device_id)}
+                >
+                  <div className="p-6">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center space-x-3">
+                        <div className={`p-2 rounded-lg ${
+                          device.status === 'online' ? 'bg-green-100' : 'bg-red-100'
+                        }`}>
                           {getStatusIcon(device.status)}
-                          <div>
-                            <p className="font-medium text-gray-900">
-                              {device.device_id}
-                            </p>
-                            <p className={`text-sm ${getStatusColor(device.status)}`}>
-                              {device.status === 'online' ? 'Connected' : 'Disconnected'}
-                            </p>
-                          </div>
+                        </div>
+                        <div>
+                          <h3 className="font-semibold text-gray-900 text-lg">
+                            {device.device_id}
+                          </h3>
+                          <p className={`text-sm font-medium ${
+                            device.status === 'online' ? 'text-green-600' : 'text-red-600'
+                          }`}>
+                            {device.status === 'online' ? 'Online' : 'Offline'}
+                          </p>
                         </div>
                       </div>
-                      {device.last_seen && (
-                        <p className="text-xs text-gray-500 mt-2">
-                          Last seen: {formatDate(device.last_seen)}
-                        </p>
-                      )}
+                      <div className="text-right">
+                        <div className="flex items-center space-x-1 text-gray-500">
+                          <Camera className="w-4 h-4" />
+                          <span className="text-sm">{device.image_count || 0}</span>
+                        </div>
+                      </div>
                     </div>
-                  ))}
+                    
+                    {device.last_seen && (
+                      <div className="flex items-center space-x-2 text-sm text-gray-500">
+                        <Clock className="w-4 h-4" />
+                        <span>Last seen: {formatDate(device.last_seen)}</span>
+                      </div>
+                    )}
+                    
+                    {selectedDevice === device.device_id && (
+                      <div className="mt-4 pt-4 border-t border-gray-200">
+                        <div className="flex items-center space-x-2 text-blue-600">
+                          <Activity className="w-4 h-4" />
+                          <span className="text-sm font-medium">Selected</span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
-              )}
+              ))}
             </div>
-          </div>
 
-          {/* Images Panel */}
-          <div className="lg:col-span-2">
-            <div className="bg-white rounded-lg shadow-sm border p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-lg font-semibold text-gray-900">
-                  Recent Images {selectedDevice && `(${images.length})`}
-                </h2>
-                {selectedDevice && (
-                  <span className="text-sm text-gray-500">
-                    Device: {selectedDevice}
-                  </span>
-                )}
+            {/* Images Section */}
+            {selectedDevice && (
+              <div className="bg-white rounded-xl shadow-lg border border-gray-200">
+                <div className="p-6 border-b border-gray-200">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-3">
+                      <Camera className="w-6 h-6 text-blue-600" />
+                      <h2 className="text-xl font-semibold text-gray-900">
+                        Recent Images
+                      </h2>
+                      <span className="px-2 py-1 bg-blue-100 text-blue-800 text-sm rounded-full">
+                        {images.length} images
+                      </span>
+                    </div>
+                    <div className="text-sm text-gray-500">
+                      Device: <span className="font-medium">{selectedDevice}</span>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="p-6">
+                  {images.length === 0 ? (
+                    <div className="text-center py-12">
+                      <div className="p-4 bg-gray-100 rounded-full w-16 h-16 mx-auto mb-4 flex items-center justify-center">
+                        <Camera className="w-8 h-8 text-gray-400" />
+                      </div>
+                      <h3 className="text-lg font-semibold text-gray-900 mb-2">No Images Available</h3>
+                      <p className="text-gray-500">This device hasn't captured any images yet</p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                      {images.map((image, index) => (
+                        <div key={index} className="relative group">
+                          <div className="aspect-square bg-gray-100 rounded-lg overflow-hidden shadow-sm">
+                            <Image
+                              src={`${API_BASE_URL}${image.url}`}
+                              alt={image.filename}
+                              width={300}
+                              height={300}
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+                            />
+                          </div>
+                          <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-50 transition-all duration-200 rounded-lg flex items-end">
+                            <div className="p-3 text-white opacity-0 group-hover:opacity-100 transition-opacity w-full">
+                              <p className="text-xs font-medium truncate mb-1">{image.filename}</p>
+                              <p className="text-xs text-gray-300 flex items-center">
+                                <Clock className="w-3 h-3 mr-1" />
+                                {formatDate(image.upload_time)}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
-
-              {!selectedDevice ? (
-                <div className="text-center py-12">
-                  <Camera className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                  <p className="text-gray-500">Select a device to view images</p>
-                </div>
-              ) : images.length === 0 ? (
-                <div className="text-center py-12">
-                  <Camera className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                  <p className="text-gray-500">No images available for this device</p>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {images.map((image, index) => (
-                    <div key={index} className="relative group">
-                      <div className="aspect-square bg-gray-100 rounded-lg overflow-hidden">
-                        <Image
-                          src={`${API_BASE_URL}${image.url}`}
-                          alt={image.filename}
-                          width={300}
-                          height={300}
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
-                        />
-                      </div>
-                      <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-50 text-white p-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <p className="text-xs truncate">{image.filename}</p>
-                        <p className="text-xs text-gray-300">
-                          <Clock className="w-3 h-3 inline mr-1" />
-                          {formatDate(image.upload_time)}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
+            )}
           </div>
-        </div>
+        )}
       </div>
     </div>
   )
