@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Wifi, WifiOff, Camera, Clock, RefreshCw, Monitor, Activity, AlertCircle } from 'lucide-react'
+import { Wifi, WifiOff, Camera, Clock, RefreshCw, Monitor, Activity, AlertCircle, X, Download } from 'lucide-react'
 import Image from 'next/image'
 
 interface Device {
@@ -25,6 +25,7 @@ export default function Home() {
   const [images, setImages] = useState<ImageData[]>([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
+  const [selectedImage, setSelectedImage] = useState<ImageData | null>(null)
 
   const fetchDevices = async () => {
     try {
@@ -91,8 +92,8 @@ export default function Home() {
     
     loadData()
     
-    // Auto-refresh every 30 seconds
-    const interval = setInterval(refreshData, 30000)
+    // Auto-refresh every 10 seconds
+    const interval = setInterval(refreshData, 10000)
     return () => clearInterval(interval)
   }, [])
 
@@ -101,6 +102,20 @@ export default function Home() {
       fetchImages(selectedDevice)
     }
   }, [selectedDevice])
+
+  // Handle ESC key to close modal
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && selectedImage) {
+        closeModal()
+      }
+    }
+
+    if (selectedImage) {
+      document.addEventListener('keydown', handleKeyDown)
+      return () => document.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [selectedImage])
 
   const getStatusIcon = (status: string) => {
     return status === 'online' ? (
@@ -116,6 +131,23 @@ export default function Home() {
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleString()
+  }
+
+  const handleImageClick = (image: ImageData) => {
+    setSelectedImage(image)
+  }
+
+  const closeModal = () => {
+    setSelectedImage(null)
+  }
+
+  const downloadImage = (image: ImageData) => {
+    const link = document.createElement('a')
+    link.href = `${API_BASE_URL}${image.url}`
+    link.download = image.filename
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
   }
 
   if (loading) {
@@ -149,14 +181,10 @@ export default function Home() {
                 <p className="text-sm text-gray-500">Total Devices</p>
                 <p className="text-2xl font-bold text-gray-900">{devices.length}</p>
               </div>
-              <button
-                onClick={refreshData}
-                disabled={refreshing}
-                className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
-              >
+              <div className="flex items-center space-x-2 text-sm text-gray-500">
                 <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
-                <span>Refresh</span>
-              </button>
+                <span>Auto-refreshing every 10s</span>
+              </div>
             </div>
           </div>
         </div>
@@ -170,12 +198,9 @@ export default function Home() {
             </div>
             <h3 className="text-xl font-semibold text-gray-900 mb-2">No Devices Connected</h3>
             <p className="text-gray-500 mb-6">Start your Raspberry Pi devices to see them appear here</p>
-            <button
-              onClick={refreshData}
-              className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-            >
-              Check Again
-            </button>
+            <div className="text-sm text-gray-500">
+              Auto-refreshing every 10 seconds
+            </div>
           </div>
         ) : (
           <div className="space-y-8">
@@ -270,7 +295,11 @@ export default function Home() {
                   ) : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4">
                       {images.map((image, index) => (
-                        <div key={index} className="relative group">
+                        <div 
+                          key={index} 
+                          className="relative group cursor-pointer"
+                          onClick={() => handleImageClick(image)}
+                        >
                           <div className="aspect-square bg-gray-100 rounded-lg overflow-hidden shadow-sm">
                             <Image
                               src={`${API_BASE_URL}${image.url}`}
@@ -299,6 +328,49 @@ export default function Home() {
           </div>
         )}
       </div>
+
+      {/* Image Modal */}
+      {selectedImage && (
+        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl max-w-4xl max-h-[90vh] w-full overflow-hidden">
+            <div className="flex items-center justify-between p-4 border-b border-gray-200">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">{selectedImage.filename}</h3>
+                <p className="text-sm text-gray-500 flex items-center">
+                  <Clock className="w-4 h-4 mr-1" />
+                  {formatDate(selectedImage.upload_time)}
+                </p>
+              </div>
+              <div className="flex items-center space-x-2">
+                <button
+                  onClick={() => downloadImage(selectedImage)}
+                  className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+                  title="Download image"
+                >
+                  <Download className="w-5 h-5" />
+                </button>
+                <button
+                  onClick={closeModal}
+                  className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+            <div className="p-4 overflow-auto max-h-[calc(90vh-80px)]">
+              <div className="flex justify-center">
+                <Image
+                  src={`${API_BASE_URL}${selectedImage.url}`}
+                  alt={selectedImage.filename}
+                  width={800}
+                  height={600}
+                  className="max-w-full h-auto rounded-lg shadow-lg"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
