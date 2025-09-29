@@ -5,7 +5,7 @@ import './globals.css'
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'Raspberry Pi Monitor',
+  title: 'Flux Data Room',
   description: 'Monitor Raspberry Pi devices and view captured images',
 }
 
@@ -16,6 +16,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
+      <title>Flux Data Room</title>
       <body className={inter.className}>{children}</body>
     </html>
   )

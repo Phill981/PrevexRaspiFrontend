@@ -190,7 +190,7 @@ export default function Home() {
                 <Monitor className="w-8 h-8 text-blue-600" />
               </div>
               <div>
-                <h1 className="text-2xl font-bold text-gray-900">Prevex Data Room</h1>
+                <h1 className="text-2xl font-bold text-gray-900">Flux Data Room</h1>
               </div>
             </div>
             <div className="flex items-center space-x-4">
